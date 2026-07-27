@@ -10,13 +10,18 @@ const healthRoutes = require('./routes/healthRoutes');
 const app = express();
 
 // ==========================================
-// 1. MIDDLEWARE CORS & PARSING
+// 1. MIDDLEWARE CORS (WAJIB DI PALING ATAS)
 // ==========================================
 app.use(cors({
-  origin: '*', // Bisa diganti dengan 'https://dia-lens.vercel.app' demi keamanan
+  origin: '*', // Izinkan semua domain frontend
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true
 }));
+
+// Tangani HTTP OPTIONS (Preflight Request) secara manual
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -25,7 +30,6 @@ app.use(express.urlencoded({ extended: true }));
 // ==========================================
 const databaseUrl = process.env.MONGO_URI;
 
-// Helper koneksi MongoDB untuk Serverless Function
 let isConnected = false;
 const connectDB = async () => {
   if (isConnected) return;
@@ -38,8 +42,11 @@ const connectDB = async () => {
   }
 };
 
-// Middleware untuk memastikan DB terhubung sebelum API diproses
+// Pastikan DB terhubung sebelum API diproses, KECUALI untuk OPTIONS request
 app.use(async (req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
   await connectDB();
   next();
 });
@@ -55,7 +62,7 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// 4. JALANKAN PORT (Lokal saja, ekspor app untuk Vercel)
+// 4. JALANKAN PORT (Lokal saja)
 // ==========================================
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 5000;
